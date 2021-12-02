@@ -1,0 +1,82 @@
+# Movimentando o Submarino
+
+## Leitura do arquivo
+
+Primeiramente é preciso ler o arquivo e converter os textos com números em integers. Para facilitar, cada comando vira um `Tuple` contando a direção e o valor.
+
+```elixir
+input =
+  File.read!("input_day_2.txt")
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn command -> String.split(command, " ") end)
+  |> Enum.map(fn [direction, number] -> {direction, String.to_integer(number)} end)
+```
+
+## Somando os movimentos
+
+Agora basta somar os movimentos realizados em cada direção e somá-los:
+
+```elixir
+defmodule DirectionCounter do
+  def calculate_distance(input, direction_to_measure) do
+    Enum.filter(input, fn {direction, _value} -> direction == direction_to_measure end)
+    |> Enum.map(fn {_direction, value} -> value end)
+    |> Enum.sum()
+  end
+end
+
+forward = DirectionCounter.calculate_distance(input, "forward")
+down = DirectionCounter.calculate_distance(input, "down")
+up = DirectionCounter.calculate_distance(input, "up")
+```
+
+E para fechar, basta descobrir a profundidade e multiplicar pelo quato o submarino avançou:
+
+```elixir
+depth = down - up
+forward * depth
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Estrela 4: Trabalhando com a mira
+
+Agora a sequência dos inputs importa, e precisamos levar isso em consideração. Além disso, passamos a ter um estado: a mira. Faz sentido então fazer algo parecido com o que fizemos na estrela 2, utilizando **patter matching** e **recursão**.
+
+<!-- livebook:{"break_markdown":true} -->
+
+Aqui, a função `calculate` inicia a recursão fornecendo o estado inicial do submarino: `{depth: 0, horizontal: 0, aim: 0}`.
+
+A função `execute_command` é executada recursivamente até que a lista de comandos se esgote. A cada iteração, o estado do submarino é atualizado através da função `update_state`.
+
+```elixir
+defmodule AimCalculator do
+  def calculate([first_command | command_list]) do
+    execute_command({0, 0, 0}, first_command, command_list)
+  end
+
+  def execute_command(state, command, _next_commands = []) do
+    {depth, horizontal, _aim} = update_state(state, command)
+    depth * horizontal
+  end
+
+  def execute_command(state, command, [next_command | command_list]) do
+    new_state = update_state(state, command)
+    execute_command(new_state, next_command, command_list)
+  end
+
+  def update_state({depth, horizontal, aim}, {"up", value}) do
+    {depth, horizontal, aim - value}
+  end
+
+  def update_state({depth, horizontal, aim}, {"down", value}) do
+    {depth, horizontal, aim + value}
+  end
+
+  def update_state({depth, horizontal, aim}, {"forward", value}) do
+    {depth + value * aim, horizontal + value, aim}
+  end
+end
+
+AimCalculator.calculate(input)
+```
