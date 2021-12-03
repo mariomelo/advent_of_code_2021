@@ -1,0 +1,169 @@
+# Dia 3
+
+## Estrela 5: O arquivo de entrada
+
+O primeiro passo é obter a lista de números binários como `Strings``:
+
+```elixir
+string_input =
+  File.read!("input_day_3.txt")
+  |> String.split("\n", trim: true)
+```
+
+## A lista de bits
+
+Agora, para facilitar o cálculo, precisamos transformar cada `String` em uma lista de bits:
+
+```elixir
+defmodule BitConverter do
+  def convert_to_bits(string_list) do
+    Enum.map(string_list, fn item ->
+      item
+      |> String.split("", trim: true)
+      |> Enum.map(&String.to_integer/1)
+    end)
+  end
+
+  def convert_to_integer(bit_list) do
+    {_base, value} =
+      bit_list
+      |> Enum.reverse()
+      |> Enum.reduce({1, 0}, fn bit, {base, acc} -> {base * 2, acc + bit * base} end)
+
+    value
+  end
+
+  def invert_bits(bit_list) do
+    Enum.map(bit_list, fn bit -> abs(bit - 1) end)
+  end
+end
+
+bit_input = BitConverter.convert_to_bits(string_input)
+```
+
+## Os bits mais comuns em cada posição
+
+Se somarmos os bits de cada posição e dividirmos pelo total de entradas, podemos dizer que:
+
+* Se a média for menor que `0.5`, o bit mais comum para aquela posição é `0`
+* Se a média for maior que `0.5`, o bit mais comum para aquela posição é `1`
+
+```elixir
+gamma_bits =
+  bit_input
+  |> Enum.zip_with(&Enum.sum/1)
+  |> Enum.map(fn summed_bits -> summed_bits / Enum.count(bit_input) end)
+  |> Enum.map(&Kernel.round/1)
+```
+
+## Obtendo gamma
+
+Para obter gamma, basta converter os bits que obtivemos em um número inteiro:
+
+```elixir
+gamma =
+  gamma_bits
+  |> BitConverter.convert_to_integer()
+```
+
+## Obtendo epsilon e o resultado final
+
+Para obter epsilon, a primeira coisa que precisamos fazer é inverter os bits de `gamma_bits` e depois convertê-los em um número inteiro:
+
+```elixir
+epsilon_bits =
+  gamma_bits
+  |> BitConverter.invert_bits()
+
+epsilon =
+  epsilon_bits
+  |> BitConverter.convert_to_integer()
+```
+
+Agora basta multiplicar `gamma` e `epsilon` para chegar ao resultado final:
+
+```elixir
+gamma * epsilon
+```
+
+## Estrela 6: Oxigenio e CO2
+
+Boa parte do código será o mesmo para os dois gases. Em ambos os casos, teremos que:
+
+* Varrer a lista de números
+* Encontrar um **bit de referência**
+* Filtrar a lista de números de acordo com o bit de referência
+
+O **bit de referência** será o bit mais comum no caso do `O2` e o menos comum no caso do `CO2`. Os critérios de desempate também são diferentes para cada gás.
+
+Isso significa que precisaremos ter duas funções de comparação diferentes (`comparison_criteria/3`), mas que podemos compartilhar boa parte do código para os dois cálculos:
+
+```elixir
+defmodule LifeSupport do
+  def comparison_criteria(:o2, {bit1, occurrencies1}, {bit2, occurrencies2}) do
+    cond do
+      occurrencies1 == occurrencies2 -> bit1 > bit2
+      true -> occurrencies1 > occurrencies2
+    end
+  end
+
+  def comparison_criteria(:co2, {bit1, occurrencies1}, {bit2, occurrencies2}) do
+    cond do
+      occurrencies1 == occurrencies2 -> bit2 > bit1
+      true -> occurrencies2 > occurrencies1
+    end
+  end
+
+  def get_reference_bit(bit_list, position, rating_type) do
+    bit_list
+    |> Enum.map(&Enum.fetch!(&1, position))
+    |> Enum.frequencies()
+    |> Enum.max(&comparison_criteria(rating_type, &1, &2))
+    |> elem(0)
+  end
+
+  def filter_by_bit(bit, position, number_list) do
+    number_list
+    |> Enum.filter(fn bits -> Enum.fetch!(bits, position) == bit end)
+  end
+
+  def find_rating([last_number | []], _bit_position, _rating_type), do: last_number
+
+  def find_rating(number_list, bit_position, rating_type) do
+    number_list
+    |> get_reference_bit(bit_position, rating_type)
+    |> filter_by_bit(bit_position, number_list)
+    |> find_rating(bit_position + 1, rating_type)
+  end
+
+  def find_oxygen_rating(bits) do
+    find_rating(bits, 0, :o2)
+  end
+
+  def find_co2_rating(bits) do
+    find_rating(bits, 0, :co2)
+  end
+end
+
+oxygen_rating =
+  bit_input
+  |> LifeSupport.find_oxygen_rating()
+  |> BitConverter.convert_to_integer()
+```
+
+## Calculando o CO2
+
+Para facilitar, criamos a função `find_co2_rating`, que utiliza a mesma estrutura recursiva mas indica que os critérios de comparação precisam mudar ao passar como parâmetro o **átomo** `:co2` para a função recursiva.
+
+```elixir
+co2_rating =
+  bit_input
+  |> LifeSupport.find_co2_rating()
+  |> BitConverter.convert_to_integer()
+```
+
+E agora basta multiplicar os valores:
+
+```elixir
+oxygen_rating * co2_rating
+```

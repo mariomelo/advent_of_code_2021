@@ -1,6 +1,6 @@
 # Movimentando o Submarino
 
-## Leitura do arquivo
+## Estrela 3: Leitura do arquivo
 
 Primeiramente é preciso ler o arquivo e converter os textos com números em integers. Para facilitar, cada comando vira um `Tuple` contando a direção e o valor.
 
