@@ -9,7 +9,7 @@ input =
   File.read!("input_day_2.txt")
   |> String.split("\n", trim: true)
   |> Enum.map(fn command -> String.split(command, " ") end)
-  |> Enum.map(fn [direction, number] -> {direction, String.to_integer(number)} end)
+  |> Enum.map(fn [direction, number] -> {String.to_atom(direction), String.to_integer(number)} end)
 ```
 
 ## Somando os movimentos
@@ -25,9 +25,9 @@ defmodule DirectionCounter do
   end
 end
 
-forward = DirectionCounter.calculate_distance(input, "forward")
-down = DirectionCounter.calculate_distance(input, "down")
-up = DirectionCounter.calculate_distance(input, "up")
+forward = DirectionCounter.calculate_distance(input, :forward)
+down = DirectionCounter.calculate_distance(input, :down)
+up = DirectionCounter.calculate_distance(input, :up)
 ```
 
 E para fechar, basta descobrir a profundidade e multiplicar pelo quato o submarino avançou:
@@ -52,7 +52,7 @@ A função `execute_command` é executada recursivamente até que a lista de com
 ```elixir
 defmodule AimCalculator do
   def calculate([first_command | command_list]) do
-    execute_command({0, 0, 0}, first_command, command_list)
+    execute_command(_initial_state = {0, 0, 0}, first_command, command_list)
   end
 
   def execute_command(state, command, _next_commands = []) do
@@ -65,15 +65,15 @@ defmodule AimCalculator do
     execute_command(new_state, next_command, command_list)
   end
 
-  def update_state({depth, horizontal, aim}, {"up", value}) do
+  def update_state({depth, horizontal, aim}, {:up, value}) do
     {depth, horizontal, aim - value}
   end
 
-  def update_state({depth, horizontal, aim}, {"down", value}) do
+  def update_state({depth, horizontal, aim}, {:down, value}) do
     {depth, horizontal, aim + value}
   end
 
-  def update_state({depth, horizontal, aim}, {"forward", value}) do
+  def update_state({depth, horizontal, aim}, {:forward, value}) do
     {depth + value * aim, horizontal + value, aim}
   end
 end

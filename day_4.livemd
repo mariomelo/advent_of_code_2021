@@ -1,0 +1,156 @@
+# Dia 4: Bingo!
+
+## Leitura dos dados
+
+Como precisamos marcar nossas tabelas, é interessante ter algo para nos indicar se o número foi ou não sorteado. Assim, durante a leitura vamos mapear cada número da tabela em uma tupla `{Número, foi_sorteado?}`:
+
+```elixir
+[numbers | tables] =
+  "data/day_4_input.txt"
+  |> File.read!()
+  |> String.split("\n\n", trim: true)
+
+bingo_numbers =
+  numbers
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+
+bingo_tables =
+  tables
+  |> Enum.map(&String.split(&1, "\n", trim: true))
+  |> Enum.map(fn table ->
+    Enum.flat_map(
+      table,
+      fn line -> String.split(line, " ", trim: true) end
+    )
+  end)
+  |> Enum.map(fn table ->
+    Enum.map(
+      table,
+      fn number -> {String.to_integer(number), false} end
+    )
+  end)
+```
+
+## Marcando os números sorteados
+
+Sempre que um número for sorteado, precisamos marcar as tabelas que tiverem aquele número. Aí, para conferir se a tabela venceu ou não, precisamos conferir linhas e colunas e avaliar se todos os números ali foram chamados
+
+```elixir
+defmodule BingoTable do
+  def call_number(table, called_number) do
+    table
+    |> Enum.map(fn
+      {number, false} -> {number, number == called_number}
+      whatever -> whatever
+    end)
+  end
+
+  def did_win?(table) do
+    check_rows(table) or check_columns(table)
+  end
+
+  def check_rows(table) do
+    table
+    |> Enum.chunk_every(5)
+    |> Enum.any?(fn line -> Enum.all?(line, fn {_number, called?} -> called? end) end)
+  end
+
+  def check_columns(table) do
+    table
+    |> Enum.chunk_every(5)
+    |> Enum.zip()
+    |> Enum.map(&Tuple.to_list/1)
+    |> Enum.any?(fn line -> Enum.all?(line, fn {_number, called?} -> called? end) end)
+  end
+end
+```
+
+## Encontrando a cartela vencedora
+
+Agora nos resta sortear os números de maneira sequecial, marcar as tabelas e conferir o resultado a cada número chamado:
+
+```elixir
+defmodule BingoGame do
+  def call_number(
+        game_tables,
+        [called_number | numbers_to_call],
+        _winner_table = [],
+        _called_number
+      ) do
+    updated_tables =
+      game_tables
+      |> Enum.map(&BingoTable.call_number(&1, called_number))
+
+    winner_table = Enum.filter(updated_tables, &BingoTable.did_win?/1)
+
+    call_number(updated_tables, numbers_to_call, winner_table, called_number)
+  end
+
+  def call_number(_game_tables, _numbers_to_call, winner_table, called_number),
+    do: {called_number, List.flatten(winner_table)}
+
+  def start_game(game_tables, numbers_to_call),
+    do: call_number(game_tables, numbers_to_call, [], nil)
+end
+
+{last_number, winner_table} = BingoGame.start_game(bingo_tables, bingo_numbers)
+```
+
+## Estrela 7: Calculando o resultado
+
+Agora basta fazer o cálculo do resultado conforme o desafio:
+
+```elixir
+unmarked_sum =
+  Enum.reduce(winner_table, 0, fn
+    {_number, true}, acc -> acc
+    {number, false}, acc -> acc + number
+  end)
+
+unmarked_sum * last_number
+```
+
+<!-- livebook:{"branch_parent_index":2} -->
+
+## Estrela 8: Bingo invertido
+
+Podemos reaproveitar boa parte do código do módulo `BingoGame` para criar nosso `ReverseBingoGame`. Ele fica até mais simples: basta remover da lista de tabelas aquelas que completarem uma linha ou coluna.
+
+```elixir
+defmodule ReverseBingoGame do
+  def call_number([winner_table | []], _numbers_to_call, _win? = true, called_number),
+    do: {called_number, List.flatten(winner_table)}
+
+  def call_number(game_tables, [called_number | numbers_to_call], _win?, _called_number) do
+    updated_tables =
+      game_tables
+      |> Enum.filter(fn table -> !BingoTable.did_win?(table) end)
+      |> Enum.map(&BingoTable.call_number(&1, called_number))
+
+    call_number(
+      updated_tables,
+      numbers_to_call,
+      Enum.any?(updated_tables, &BingoTable.did_win?/1),
+      called_number
+    )
+  end
+
+  def start_game(game_tables, numbers_to_call),
+    do: call_number(game_tables, numbers_to_call, false, nil)
+end
+
+{last_number, winner_table} = ReverseBingoGame.start_game(bingo_tables, bingo_numbers)
+```
+
+O cálculo do score é exatamente o mesmo:
+
+```elixir
+unmarked_sum =
+  Enum.reduce(winner_table, 0, fn
+    {_number, true}, acc -> acc
+    {number, false}, acc -> acc + number
+  end)
+
+unmarked_sum * last_number
+```
