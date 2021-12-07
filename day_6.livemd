@@ -1,0 +1,85 @@
+# Dia 6: O peixe-lanterna
+
+## Lendo o arquivo de entrada
+
+Esse arquivo é bastante simples de ler: basta separar por vírgulas e converter os valores para `Integer`.
+
+```elixir
+input =
+  File.read!("data/day_6_input.txt")
+  |> String.split([",", "\n"], trim: true)
+  |> Enum.map(&String.to_integer/1)
+```
+
+## Calculando os peixes gerados
+
+```elixir
+defmodule FishCalculator do
+  def project_days(_days = 0, fishes), do: fishes
+
+  def project_days(days, fishes) do
+    updated_fishes =
+      fishes
+      |> Enum.map(fn
+        0 -> [6, 8]
+        days_to_reproduce -> days_to_reproduce - 1
+      end)
+      |> List.flatten()
+
+    project_days(days - 1, updated_fishes)
+  end
+end
+
+FishCalculator.project_days(80, input)
+|> Enum.count()
+```
+
+## Estrela 12: Contagem Eficiente
+
+O último exemplo funciona para 80 dias, mas o algoritmo utilizado não é nada eficiente e pode demorar uma eternidade para calcular o que acontece depois de 256 dias. Para tornar nosso algoritmo mais efetivo, podemos utilizar a função `Enum.frequencies` em nossa lista de peixes para obter quantos peixes temos em cada dia do ciclo de reprodução:
+
+```elixir
+optimized_input = Enum.frequencies(input)
+```
+
+E agora, criamos um novo calculador de peixes com base nesta nova estrutura.
+
+### Removendo registros duplicados
+
+Existem duas ocasiões em que peixes voltam ao dia 6 do ciclo: quando saem do dia 7 e quando saem do dia 0. Isto faz com que nosso algoritmo gere duas `Tuples` com o padrão `{6, _}`. Esse aumento no número de tuplas é exponencial e pode prejudicar o nosso algoritmo. Por isso criamos a função `sum_same_day_fishes` para somar os registros de peixes que estão no mesmo dia do ciclo.
+
+```elixir
+defmodule OptimizedFishCalculator do
+  def project_days(_days = 0, fishes), do: fishes
+
+  def project_days(days, fishes) do
+    updated_fishes =
+      fishes
+      |> Enum.map(fn
+        {0, fish_count} -> [{8, fish_count}, {6, fish_count}]
+        {days, fish_count} -> {days - 1, fish_count}
+      end)
+      |> List.flatten()
+      |> sum_same_day_fishes
+
+    project_days(days - 1, updated_fishes)
+  end
+
+  defp sum_same_day_fishes(list) do
+    Enum.map(list, fn
+      {days, _fishes} ->
+        total_fishes =
+          Enum.filter(list, fn {index, _value} -> index == days end)
+          |> Enum.map(fn {_index, value} -> value end)
+          |> Enum.sum()
+
+        {days, total_fishes}
+    end)
+    |> Map.new()
+  end
+end
+
+OptimizedFishCalculator.project_days(256, optimized_input)
+|> Map.values()
+|> Enum.sum()
+```
