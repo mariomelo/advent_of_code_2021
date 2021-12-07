@@ -1,0 +1,67 @@
+# Dia 5 - Termas
+
+## Lendo o arquivo de entrada
+
+Cada linha pode ser representada por uma lista de 4 coordenadas: `[x1, y1, x2, y2]`.
+
+```elixir
+input_data =
+  File.read!("data/day_5_input.txt")
+  |> String.split(["\n", ",", " -> "], trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.chunk_every(4)
+```
+
+## Traçando as linhas
+
+Para traçar as linhas horizontais e verticais, basta criar uma lista de pontos intermediario entre os pontos `{x1, y1}` e `{x2, y2}`:
+
+```elixir
+points =
+  input_data
+  |> Enum.map(fn
+    [same_x, y1, same_x, y2] -> Enum.map(y1..y2, fn y -> [same_x, y] end)
+    [x1, same_y, x2, same_y] -> Enum.map(x1..x2, fn x -> [x, same_y] end)
+    _ -> []
+  end)
+  |> List.flatten()
+  |> Enum.chunk_every(2)
+```
+
+## Estrela 9: Contando overlaps
+
+Agora basta contar quantos pontos repetidos temos na lista
+
+```elixir
+points
+|> Enum.group_by(fn item -> item end)
+|> Enum.map(fn {key, value} -> {key, Enum.count(value)} end)
+|> Enum.count(fn {_coords, occurrences} -> occurrences > 1 end)
+```
+
+## Estrela 10: Contando as linhas diagonais
+
+Como utilizamos pattern matching para contar as linhas horizontais e verticais, agora basta acrescentar um caso para contar também as diagonais. Vamos copiar o código da Estrela 9 e adicionar o tratamento para linhas diagonais:
+
+```elixir
+points_with_diagonals =
+  input_data
+  |> Enum.map(fn
+    [same_x, y1, same_x, y2] -> Enum.map(y1..y2, fn y -> [same_x, y] end)
+    [x1, same_y, x2, same_y] -> Enum.map(x1..x2, fn x -> [x, same_y] end)
+    [x1, y1, x2, y2] -> Enum.map(Enum.zip(x1..x2, y1..y2), &Tuple.to_list/1)
+  end)
+  |> List.flatten()
+  |> Enum.chunk_every(2)
+```
+
+## Contando novamente
+
+Agora basta repetir o cálculo usando a mesma fórmula de antes:
+
+```elixir
+points_with_diagonals
+|> Enum.group_by(fn item -> item end)
+|> Enum.map(fn {key, value} -> {key, Enum.count(value)} end)
+|> Enum.count(fn {_coords, occurrences} -> occurrences > 1 end)
+```
