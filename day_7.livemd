@@ -1,0 +1,126 @@
+# Dia 7: Caranguejos Submarinos
+
+## Leitura do arquivo de entrada
+
+Uma forma eficiente de ler o arquivo é criar um mapa onde a chave é a posição do caranguejo e o valor representa a quantidade de caranguejos naquela posição:
+
+```elixir
+input =
+  File.read!("data/day_7_input.txt")
+  |> String.split([",", "\n"], trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.frequencies()
+```
+
+## Método força bruta
+
+Para tentar o método força bruta basta definir as posições mais extremas dos caranguejos `min_position` e `max_position` e para cada posição entre as duas avaliar o combustível gasto através da fórmula:
+
+* `VALOR_ABSOLUTO(posição_atual - posição_destino) * quantidade_de_caranguejos_na_posição`
+
+Assim obtemos um mapa com a quantidade de combustível gasto pelos caranguejos de cada posição. Para obter o total, basta somar os valores como fizemos em `calculate_fuel_spent`.
+
+O resultado obtido é um mapa com a quantidade de combustível gasto para cada posição de destino dos caranguejos.
+
+```elixir
+defmodule BruteForceCrabs do
+  def check_every_position(first_position, last_position, crab_map) do
+    first_position..last_position
+    |> Enum.map(fn position ->
+      {position, calculate_fuel_spent(crab_map, position)}
+    end)
+  end
+
+  defp calculate_fuel_spent(crab_map, desired_position) do
+    crab_map
+    |> Enum.reduce(0, fn {current_position, crabs_in_position}, fuel_spent ->
+      fuel_spent + abs(desired_position - current_position) * crabs_in_position
+    end)
+  end
+
+  def start(crab_map) do
+    min_position =
+      crab_map
+      |> Map.keys()
+      |> Enum.min()
+
+    max_position =
+      crab_map
+      |> Map.keys()
+      |> Enum.max()
+
+    check_every_position(min_position, max_position, crab_map)
+  end
+end
+
+fuel_spent = BruteForceCrabs.start(input)
+```
+
+## Estrela 13: Economizando combustível
+
+Agora basta descobrir qual posição exige menos combustível:
+
+```elixir
+fuel_spent
+|> Enum.map(fn {_position, fuel} -> fuel end)
+|> Enum.min()
+```
+
+## Estrela 14: Combustível fatorial
+
+O consumo de combustível agora passa a ser fatorial. Por exemplo, se a distância for 5, o consumo será:
+
+* 5 + 4 + 3 + 2 + 1 = 15
+
+Para evitar outro loop e otimizar nosso cálculo podemos calcular o combustível gasto com a seguinte fórmula:
+
+* `(distancia + 1) * distancia / 2`
+
+```elixir
+defmodule FatorialForceCrabs do
+  def check_every_position(first_position, last_position, crab_map) do
+    first_position..last_position
+    |> Enum.map(fn position ->
+      {position, calculate_fuel_spent(crab_map, position)}
+    end)
+  end
+
+  defp calculate_fuel_spent(crab_map, desired_position) do
+    crab_map
+    |> Enum.reduce(0, fn {current_position, crabs_in_position}, fuel_spent ->
+      fuel_spent + get_fuel_by_distance(desired_position, current_position) * crabs_in_position
+    end)
+  end
+
+  defp get_fuel_by_distance(origin, destination) do
+    distance = abs(origin - destination)
+    floor((distance + 1) * distance / 2)
+  end
+
+  def start(crab_map) do
+    min_position =
+      crab_map
+      |> Map.keys()
+      |> Enum.min()
+
+    max_position =
+      crab_map
+      |> Map.keys()
+      |> Enum.max()
+
+    check_every_position(min_position, max_position, crab_map)
+  end
+end
+
+fatorial_fuel_spent = FatorialForceCrabs.start(input)
+```
+
+## Calculando o novo resultado
+
+Como a estrutura produzida pelo módulo `FatorialForceCrabs` é exatamente a mesma que criamos no módulo `BruteForceCrabs` podemos calcular o resultado final com o mesmo código:
+
+```elixir
+fatorial_fuel_spent
+|> Enum.map(fn {_position, fuel} -> fuel end)
+|> Enum.min()
+```
