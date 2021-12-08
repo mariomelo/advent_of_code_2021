@@ -1,6 +1,6 @@
 <!-- livebook:{"persist_outputs":true} -->
 
-# Star 2
+# Dia 1: Medindo a profundidade
 
 ## Obtendo o input
 
@@ -24,6 +24,22 @@ inputs = InputReader.get_inputs()
 [150, 152, 155, 156, 157, 141, 124, 138, 143, 145, 144, 146, 148, 149, 148, 149, 124, 122, 123, 124,
  117, 118, 119, 132, 159, 152, 175, 183, 194, 222, 226, 237, 242, 248, 229, 225, 227, 235, 229, 230,
  227, 229, 252, 253, 251, 269, 270, 266, 268, 269, ...]
+```
+
+## Contando as descidas
+
+Agora basta percorrer a lista e acumular o número de vezes em que a profundidade é maior do que a profundidade anterior.
+
+```elixir
+inputs
+|> Enum.chunk_every(2, 1, :discard)
+|> Enum.map(&List.to_tuple/1)
+|> Enum.filter(fn {last_depth, current_depth} -> current_depth > last_depth end)
+|> Enum.count()
+```
+
+```output
+1502
 ```
 
 ## Transformando os inputs
