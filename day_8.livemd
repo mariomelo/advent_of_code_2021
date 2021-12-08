@@ -1,3 +1,5 @@
+<!-- livebook:{"persist_outputs":true} -->
+
 # Dia 8: Mostradores de 7 segmentos
 
 ## Arquivo de Entrada
@@ -28,6 +30,14 @@ segments_lit =
 plain_data_list
 ```
 
+```output
+["abcdefg", "abcdef", "abcdg", "cdg", "abcdf", "bdfg", "acdefg", "dg", "abcdfg", "abceg", "cdg",
+ "abcdefg", "bdfg", "abcdg", "acdefg", "abcdefg", "abdfg", "bcdfg", "abg", "abdefg", "abcefg",
+ "abde", "adefg", "ab", "abdfg", "ab", "abcdefg", "abcdefg", "abcdeg", "abcdefg", "fg", "defg",
+ "abcef", "bcefg", "bcdefg", "abcdfg", "cfg", "bcdeg", "cfg", "abcef", "abcdefg", "abcdefg",
+ "bcdeg", "bcefg", "dg", "abcdef", "abcdefg", "abcdeg", "acdg", "bdg", ...]
+```
+
 **Edit**: A leitura foi ligeiramente alterada para facilitar o algoritmo da Estrela 16. Todos os segmentos foram ordenados alfabeticamente no momento da leitura.
 
 ## Estrela 15: Segmentos 1, 4, 7 e 8
@@ -40,6 +50,10 @@ segments_lit
 |> Enum.count(fn segments ->
   String.length(segments) in [2, 3, 4, 7]
 end)
+```
+
+```output
+525
 ```
 
 ## Estrela 16: Deduzindo os segmentos
@@ -76,6 +90,21 @@ test_input =
   "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab"
   |> String.split(" ")
   |> Enum.map(fn word -> String.codepoints(word) |> Enum.sort() end)
+```
+
+```output
+[
+  ["a", "b", "c", "d", "e", "f", "g"],
+  ["b", "c", "d", "e", "f"],
+  ["a", "c", "d", "f", "g"],
+  ["a", "b", "c", "d", "f"],
+  ["a", "b", "d"],
+  ["a", "b", "c", "d", "e", "f"],
+  ["b", "c", "d", "e", "f", "g"],
+  ["a", "b", "e", "f"],
+  ["a", "b", "c", "d", "e", "g"],
+  ["a", "b"]
+]
 ```
 
 No exemplo `test_input`, sabemos que `be` é `1` e que `6` só pode ser uma das alternativas com 6 segmentos: `['cbdgef', 'fgaecd', 'agebfd']`.
@@ -166,6 +195,10 @@ defmodule DigitDecoder do
 end
 ```
 
+```output
+{:module, DigitDecoder, <<70, 79, 82, 49, 0, 0, 18, ...>>, {:discover_digits, 2}}
+```
+
 ## Calculando o resultado
 
 ```elixir
@@ -177,4 +210,8 @@ input_signals
   |> DigitDecoder.discover_digits(segments)
 end)
 |> Enum.sum()
+```
+
+```output
+1083859
 ```

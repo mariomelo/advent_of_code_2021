@@ -1,3 +1,5 @@
+<!-- livebook:{"persist_outputs":true} -->
+
 # Dia 6: O peixe-lanterna
 
 ## Lendo o arquivo de entrada
@@ -9,6 +11,11 @@ input =
   File.read!("data/day_6_input.txt")
   |> String.split([",", "\n"], trim: true)
   |> Enum.map(&String.to_integer/1)
+```
+
+```output
+[3, 3, 5, 1, 1, 3, 4, 2, 3, 4, 3, 1, 1, 3, 3, 1, 5, 4, 4, 1, 4, 1, 1, 1, 3, 3, 2, 3, 3, 4, 2, 5, 1,
+ 4, 1, 2, 2, 4, 2, 5, 1, 2, 2, 1, 1, 1, 1, 4, 5, 4, ...]
 ```
 
 ## Calculando os peixes gerados
@@ -34,12 +41,20 @@ FishCalculator.project_days(80, input)
 |> Enum.count()
 ```
 
+```output
+362740
+```
+
 ## Estrela 12: Contagem Eficiente
 
 O último exemplo funciona para 80 dias, mas o algoritmo utilizado não é nada eficiente e pode demorar uma eternidade para calcular o que acontece depois de 256 dias. Para tornar nosso algoritmo mais efetivo, podemos utilizar a função `Enum.frequencies` em nossa lista de peixes para obter quantos peixes temos em cada dia do ciclo de reprodução:
 
 ```elixir
 optimized_input = Enum.frequencies(input)
+```
+
+```output
+%{1 => 112, 2 => 60, 3 => 42, 4 => 50, 5 => 36}
 ```
 
 E agora, criamos um novo calculador de peixes com base nesta nova estrutura.
@@ -82,4 +97,8 @@ end
 OptimizedFishCalculator.project_days(256, optimized_input)
 |> Map.values()
 |> Enum.sum()
+```
+
+```output
+1644874076764
 ```

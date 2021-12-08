@@ -1,13 +1,27 @@
+<!-- livebook:{"persist_outputs":true} -->
+
 # Dia 3
 
 ## Estrela 5: O arquivo de entrada
 
-O primeiro passo é obter a lista de números binários como `Strings``:
+O primeiro passo é obter a lista de números binários como `Strings`:
 
 ```elixir
 string_input =
-  File.read!("input_day_3.txt")
+  File.read!("data/day_3_input.txt")
   |> String.split("\n", trim: true)
+```
+
+```output
+["000011000110", "100110100101", "101100101001", "001100010000", "011000100100", "110100101111",
+ "110110001001", "010010100101", "100111000010", "001010110001", "110111010001", "110001011000",
+ "011110010100", "001001010111", "110010111111", "111011010111", "100010001011", "010001100010",
+ "111110111111", "001000101111", "010111110110", "000000001100", "001000110101", "111111010011",
+ "111010011100", "111010010110", "100110011000", "110110000010", "101101011101", "111100000001",
+ "110000101011", "000110111000", "110101110000", "110001100001", "110101001101", "100011011000",
+ "110101000111", "100010100111", "111101001100", "000110000110", "101011000100", "011100100001",
+ "101110111010", "110011011101", "010111001101", "110001001101", "100000000101", "010011100100",
+ "111001111111", "101111111111", ...]
 ```
 
 ## A lista de bits
@@ -41,6 +55,62 @@ end
 bit_input = BitConverter.convert_to_bits(string_input)
 ```
 
+```output
+[
+  [0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0],
+  [1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1],
+  [1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1],
+  [0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+  [0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+  [1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1],
+  [1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1],
+  [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1],
+  [1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0],
+  [0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1],
+  [1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+  [1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0],
+  [0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0],
+  [0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1],
+  [1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1],
+  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1],
+  [0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0],
+  [1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+  [0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+  [0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+  [0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1],
+  [1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1],
+  [1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0],
+  [1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0],
+  [1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0],
+  [1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0],
+  [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+  [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1],
+  [0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0],
+  [1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0],
+  [1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1],
+  [1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1],
+  [1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0],
+  [1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1],
+  [1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1],
+  [1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, ...],
+  [0, 0, 0, 1, 1, 0, 0, 0, 0, 1, ...],
+  [1, 0, 1, 0, 1, 1, 0, 0, 0, ...],
+  [0, 1, 1, 1, 0, 0, 1, 0, ...],
+  [1, 0, 1, 1, 1, 0, 1, ...],
+  [1, 1, 0, 0, 1, 1, ...],
+  [0, 1, 0, 1, 1, ...],
+  [1, 1, 0, 0, ...],
+  [1, 0, 0, ...],
+  [0, 1, ...],
+  [1, ...],
+  [...],
+  ...
+]
+```
+
 ## Os bits mais comuns em cada posição
 
 Se somarmos os bits de cada posição e dividirmos pelo total de entradas, podemos dizer que:
@@ -56,6 +126,10 @@ gamma_bits =
   |> Enum.map(&Kernel.round/1)
 ```
 
+```output
+[1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+```
+
 ## Obtendo gamma
 
 Para obter gamma, basta converter os bits que obtivemos em um número inteiro:
@@ -64,6 +138,10 @@ Para obter gamma, basta converter os bits que obtivemos em um número inteiro:
 gamma =
   gamma_bits
   |> BitConverter.convert_to_integer()
+```
+
+```output
+2576
 ```
 
 ## Obtendo epsilon e o resultado final
@@ -80,10 +158,18 @@ epsilon =
   |> BitConverter.convert_to_integer()
 ```
 
+```output
+1519
+```
+
 Agora basta multiplicar `gamma` e `epsilon` para chegar ao resultado final:
 
 ```elixir
 gamma * epsilon
+```
+
+```output
+3912944
 ```
 
 ## Estrela 6: Oxigenio e CO2
@@ -96,7 +182,7 @@ Boa parte do código será o mesmo para os dois gases. Em ambos os casos, teremo
 
 O **bit de referência** será o bit mais comum no caso do `O2` e o menos comum no caso do `CO2`. Os critérios de desempate também são diferentes para cada gás.
 
-Isso significa que precisaremos ter duas funções de comparação diferentes (`comparison_criteria/3`), mas que podemos compartilhar boa parte do código para os dois cálculos:
+Isso significa que precisaremos ter duas funções de comparação diferentes (comparison_criteria/3), mas que podemos compartilhar boa parte do código para os dois cálculos:
 
 ```elixir
 defmodule LifeSupport do
@@ -151,9 +237,13 @@ oxygen_rating =
   |> BitConverter.convert_to_integer()
 ```
 
+```output
+3597
+```
+
 ## Calculando o CO2
 
-Para facilitar, criamos a função `find_co2_rating`, que utiliza a mesma estrutura recursiva mas indica que os critérios de comparação precisam mudar ao passar como parâmetro o **átomo** `:co2` para a função recursiva.
+Para facilitar, criamos a função find_co2_rating, que utiliza a mesma estrutura recursiva mas indica que os critérios de comparação precisam mudar ao passar como parâmetro o **átomo** :co2 para a função recursiva.
 
 ```elixir
 co2_rating =
@@ -162,8 +252,16 @@ co2_rating =
   |> BitConverter.convert_to_integer()
 ```
 
+```output
+1389
+```
+
 E agora basta multiplicar os valores:
 
 ```elixir
 oxygen_rating * co2_rating
+```
+
+```output
+4996233
 ```

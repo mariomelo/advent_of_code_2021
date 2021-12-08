@@ -1,3 +1,5 @@
+<!-- livebook:{"persist_outputs":true} -->
+
 # Movimentando o Submarino
 
 ## Estrela 3: Leitura do arquivo
@@ -6,10 +8,66 @@ Primeiramente é preciso ler o arquivo e converter os textos com números em int
 
 ```elixir
 input =
-  File.read!("input_day_2.txt")
+  File.read!("data/day_2_input.txt")
   |> String.split("\n", trim: true)
   |> Enum.map(fn command -> String.split(command, " ") end)
   |> Enum.map(fn [direction, number] -> {String.to_atom(direction), String.to_integer(number)} end)
+```
+
+```output
+[
+  forward: 2,
+  down: 2,
+  forward: 6,
+  forward: 8,
+  down: 8,
+  up: 2,
+  forward: 7,
+  forward: 8,
+  down: 1,
+  down: 8,
+  forward: 9,
+  down: 1,
+  down: 9,
+  up: 9,
+  forward: 8,
+  down: 4,
+  forward: 1,
+  forward: 4,
+  up: 3,
+  down: 1,
+  up: 4,
+  up: 7,
+  down: 8,
+  forward: 8,
+  forward: 9,
+  down: 7,
+  forward: 2,
+  up: 2,
+  forward: 3,
+  forward: 2,
+  down: 8,
+  up: 3,
+  up: 3,
+  forward: 6,
+  down: 5,
+  up: 6,
+  down: 3,
+  forward: 4,
+  forward: 2,
+  down: 9,
+  down: 9,
+  down: 1,
+  down: 3,
+  forward: 7,
+  forward: 4,
+  down: 1,
+  down: 3,
+  up: 3,
+  up: 9,
+  up: 2,
+  ...
+]
 ```
 
 ## Somando os movimentos
@@ -30,11 +88,19 @@ down = DirectionCounter.calculate_distance(input, :down)
 up = DirectionCounter.calculate_distance(input, :up)
 ```
 
+```output
+1108
+```
+
 E para fechar, basta descobrir a profundidade e multiplicar pelo quato o submarino avançou:
 
 ```elixir
 depth = down - up
 forward * depth
+```
+
+```output
+1427868
 ```
 
 <!-- livebook:{"branch_parent_index":0} -->
@@ -79,4 +145,8 @@ defmodule AimCalculator do
 end
 
 AimCalculator.calculate(input)
+```
+
+```output
+1568138742
 ```
