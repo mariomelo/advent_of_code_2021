@@ -148,10 +148,10 @@ defmodule DigitDecoder do
       input
       |> Enum.map(&String.codepoints/1)
 
-    references = get_references(input_list)
+    initial_result = get_references(input_list)
 
-    Enum.reduce(input_list, references, fn input, result ->
-      decode_digit(result, input, length(input))
+    Enum.reduce(input_list, initial_result, fn
+      input, result -> decode_digit(result, input, length(input))
     end)
     |> Enum.map(fn {digit, segments} -> {Enum.join(segments), digit} end)
     |> Map.new()
