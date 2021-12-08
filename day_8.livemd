@@ -1,0 +1,180 @@
+# Dia 8: Mostradores de 7 segmentos
+
+## Arquivo de Entrada
+
+Podemos separar o arquivo de entrada em duas partes:
+
+* `input_signals`, que representa a lista de sinais de entrada (tudo que vem antes do `|`)
+* `segments_lit`, que representa quais segmentos foram acesos (tudo que vem depois to `|`)
+
+As duas listas precisam ter o mesmo tamanho pois seus items representam partes das linhas do arquivo de entrada.
+
+```elixir
+plain_data_list =
+  "data/day_8_input.txt"
+  |> File.read!()
+  |> String.split([" | ", "\n", " "], trim: true)
+  |> Enum.map(fn word -> String.codepoints(word) |> Enum.sort() |> Enum.join() end)
+
+input_signals =
+  plain_data_list
+  |> Enum.chunk_every(10, 14)
+
+segments_lit =
+  plain_data_list
+  |> Enum.drop(10)
+  |> Enum.chunk_every(4, 14)
+
+plain_data_list
+```
+
+**Edit**: A leitura foi ligeiramente alterada para facilitar o algoritmo da Estrela 16. Todos os segmentos foram ordenados alfabeticamente no momento da leitura.
+
+## Estrela 15: Segmentos 1, 4, 7 e 8
+
+Esta parte é simples: agora basta contar quais saídas possuem apenas 2, 3, 4 ou 7 segmentos acesos para identificar quantos dígitos 1, 4, 7 ou 8 temos nas saídas.
+
+```elixir
+segments_lit
+|> List.flatten()
+|> Enum.count(fn segments ->
+  String.length(segments) in [2, 3, 4, 7]
+end)
+```
+
+## Estrela 16: Deduzindo os segmentos
+
+Sabemos como identificar facilmente os dígitos 1, 4, 7 e 8. Agora precisamos encontrar padrões para identificar os outros dígitos.
+
+```
+  0:      1:      2:      3:      4:
+ aaaa    ....    aaaa    aaaa    ....
+b    c  .    c  .    c  .    c  b    c
+b    c  .    c  .    c  .    c  b    c
+ ....    ....    dddd    dddd    dddd
+e    f  .    f  e    .  .    f  .    f
+e    f  .    f  e    .  .    f  .    f
+ gggg    ....    gggg    gggg    ....
+
+  5:      6:      7:      8:      9:
+ aaaa    aaaa    aaaa    aaaa    aaaa
+b    .  b    .  .    c  b    c  b    c
+b    .  b    .  .    c  b    c  b    c
+ dddd    dddd    ....    dddd    dddd
+.    f  e    f  .    f  e    f  .    f
+.    f  e    f  .    f  e    f  .    f
+ gggg    gggg    ....    gggg    gggg
+```
+
+Vamos considerar o dígito `6`. Quais características sabemos sobre ele?
+
+* Apenas o `0`, o `9` e o `6` têm 6 segmentos acesos
+* Destes, apenas o `6` não inclui os segmentos do dígito `1` (`c` e  `f`)
+
+```elixir
+test_input =
+  "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab"
+  |> String.split(" ")
+  |> Enum.map(fn word -> String.codepoints(word) |> Enum.sort() end)
+```
+
+No exemplo `test_input`, sabemos que `be` é `1` e que `6` só pode ser uma das alternativas com 6 segmentos: `['cbdgef', 'fgaecd', 'agebfd']`.
+
+Neste caso, `fgaecd` não contém `b`. E portanto, seria nosso dígito `6`.
+
+<!-- livebook:{"break_markdown":true} -->
+
+Como só temos conflitos com dígitos que acendem 5 ou 6 segmentos do mostrador, basta entender as diferenças entre cada um deles.
+
+* Dígitos com **6 segmentos**: `6`, `9` e `0`
+
+  * O `6` é o único que **não contém** os segmentos do `1`
+  * O `0` **contém** os segmentos do `1`, mas **não contém** os segmentos do `4`
+  * O `9` **contém** os segmentos do `1` e do `4`
+
+* Dígitos com **5 segmentos**: `2`, `3` e `5`
+
+  * O `3` é o único que **contém** todos os dígitos do `7`
+  * O `2` é o único que **não contém 2 segmentos** `4`
+  * O `5` é o que sobra
+
+## Aplicando as heurísticas
+
+```elixir
+defmodule DigitDecoder do
+  def get_references(inputs) do
+    %{
+      1 => Enum.find(inputs, fn item -> length(item) == 2 end),
+      4 => Enum.find(inputs, fn item -> length(item) == 4 end),
+      7 => Enum.find(inputs, fn item -> length(item) == 3 end),
+      8 => Enum.find(inputs, fn item -> length(item) == 7 end)
+    }
+  end
+
+  def decode_digit(result, _digit, digit_segments) when digit_segments in [1, 4, 7, 8], do: result
+
+  def decode_digit(result, digit, _digit_segments = 6) do
+    number_1 = Map.fetch!(result, 1)
+    number_4 = Map.fetch!(result, 4)
+
+    current_number =
+      cond do
+        Enum.count(number_1 -- digit) > 0 -> 6
+        Enum.count(number_4 -- digit) > 0 -> 0
+        true -> 9
+      end
+
+    Map.update(result, current_number, digit, fn _ -> digit end)
+  end
+
+  def decode_digit(result, digit, _digit_segments = 5) do
+    number_7 = Map.fetch!(result, 7)
+    number_4 = Map.fetch!(result, 4)
+
+    current_number =
+      cond do
+        Enum.count(number_7 -- digit) == 0 -> 3
+        Enum.count(number_4 -- digit) == 2 -> 2
+        true -> 5
+      end
+
+    Map.update(result, current_number, digit, fn _ -> digit end)
+  end
+
+  def decode_digit(result, _digit, _digit_segments), do: result
+
+  def decode_input(input) do
+    input_list =
+      input
+      |> Enum.map(&String.codepoints/1)
+
+    references = get_references(input_list)
+
+    Enum.reduce(input_list, references, fn input, result ->
+      decode_digit(result, input, length(input))
+    end)
+    |> Enum.map(fn {digit, segments} -> {Enum.join(segments), digit} end)
+    |> Map.new()
+  end
+
+  def discover_digits(input_dictionary, segments) do
+    segments
+    |> Enum.map(fn segment -> Map.get(input_dictionary, segment) end)
+    |> Enum.join()
+    |> String.to_integer()
+  end
+end
+```
+
+## Calculando o resultado
+
+```elixir
+input_signals
+|> Enum.zip(segments_lit)
+|> Enum.map(fn {inputs, segments} ->
+  inputs
+  |> DigitDecoder.decode_input()
+  |> DigitDecoder.discover_digits(segments)
+end)
+|> Enum.sum()
+```
