@@ -1,0 +1,139 @@
+# Dia 9: O chão é lava
+
+## Lendo o arquivo de entrada
+
+Podemos entender o arquivo de entrada como uma matriz com a seguinte estrutura:
+
+```
+%{
+  {posicao_x, posicao_y => profundidade}
+}
+```
+
+Para isso, precisamos ler o arquivo e montar esta estrutura:
+
+```elixir
+data_matrix =
+  "data/day_9_input.txt"
+  |> File.read!()
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line -> String.split(line, "", trim: true) end)
+
+matrix_width = length(Enum.fetch!(data_matrix, 0))
+
+depth_matrix =
+  data_matrix
+  |> List.flatten()
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Enum.map(fn {depth, index} ->
+    {{floor(index / matrix_width), rem(index, matrix_width)}, depth}
+  end)
+  |> Map.new()
+```
+
+## Identificando os pontos mais baixos
+
+Para identificar os pontos mais baixos é necessário comparar a profundidade de um dado ponto com seus 4 vizinhos. É claro que os pontos do canto terão menos vizinhos, então precisamos levar isso em conta:
+
+```elixir
+defmodule LowFinder do
+  def is_local_low(depth_matrix, {pos_x, pos_y}, depth) do
+    is_lower_than(true, Map.fetch(depth_matrix, {pos_x + 1, pos_y}), depth)
+    |> is_lower_than(Map.fetch(depth_matrix, {pos_x - 1, pos_y}), depth)
+    |> is_lower_than(Map.fetch(depth_matrix, {pos_x, pos_y + 1}), depth)
+    |> is_lower_than(Map.fetch(depth_matrix, {pos_x, pos_y - 1}), depth)
+  end
+
+  defp is_lower_than(false, _, _), do: false
+  defp is_lower_than(_, :error, _), do: true
+  defp is_lower_than(true, {:ok, neighbor_depth}, depth), do: depth < neighbor_depth
+end
+
+low_points =
+  depth_matrix
+  |> Enum.filter(fn {point, depth} -> LowFinder.is_local_low(depth_matrix, point, depth) end)
+  |> Map.new()
+```
+
+## Estrela 17: Calculando os riscos
+
+Agora basta somar `1` às profundidades dos pontos encontrados para encontrar o risco total:
+
+```elixir
+low_points
+|> Map.values()
+|> Enum.map(fn item -> item + 1 end)
+|> Enum.sum()
+```
+
+## Estrela 18: As bacias!
+
+Agora para cada ponto precisamos:
+
+* Identificar os vizinhos mais altos
+* Adicionar estes vizinhos a uma lista de pontos pertencentes a bacias
+* Explorar os vizinhos destes vizinhos
+
+A função `find_basin_neighbors` identifica quais vizinhos pertencem à bacia atual, e a função `measure_basin` vai acumulando os pontos que se enquadram neste critério.
+
+```elixir
+defmodule BasinMeasurer do
+  def measure_basin(results, point, depth, depth_matrix) do
+    updated_results = [point | results]
+
+    find_basin_neighbors(depth_matrix, point, depth)
+    |> Enum.filter(fn point -> point not in updated_results end)
+    |> Enum.reduce(updated_results, fn point, acc_results ->
+      measure_basin(acc_results, point, Map.fetch!(depth_matrix, point), depth_matrix)
+    end)
+  end
+
+  def find_basin_neighbors(depth_matrix, {pos_x, pos_y}, depth) do
+    []
+    |> List.insert_at(
+      0,
+      explore_neighbor(depth, {pos_x + 1, pos_y}, Map.fetch(depth_matrix, {pos_x + 1, pos_y}))
+    )
+    |> List.insert_at(
+      0,
+      explore_neighbor(depth, {pos_x - 1, pos_y}, Map.fetch(depth_matrix, {pos_x - 1, pos_y}))
+    )
+    |> List.insert_at(
+      0,
+      explore_neighbor(depth, {pos_x, pos_y + 1}, Map.fetch(depth_matrix, {pos_x, pos_y + 1}))
+    )
+    |> List.insert_at(
+      0,
+      explore_neighbor(depth, {pos_x, pos_y - 1}, Map.fetch(depth_matrix, {pos_x, pos_y - 1}))
+    )
+    |> List.flatten()
+  end
+
+  defp explore_neighbor(_current_depth, _neighbor_point, _neighbor_depth = :error), do: []
+
+  defp explore_neighbor(_current_depth, _neighbor_point, _neighbor_depth = {:ok, neighbor_depth})
+       when neighbor_depth == 9,
+       do: []
+
+  defp explore_neighbor(current_depth, _neighbor_point, _neighbor_depth = {:ok, neighbor_depth})
+       when current_depth > neighbor_depth,
+       do: []
+
+  defp explore_neighbor(current_depth, neighbor_point, _neighbor_depth = {:ok, neighbor_depth})
+       when current_depth <= neighbor_depth,
+       do: neighbor_point
+end
+
+low_points
+|> Enum.map(fn {point, depth} -> BasinMeasurer.measure_basin([], point, depth, depth_matrix) end)
+|> Enum.map(fn line ->
+  Enum.map(line, fn point -> {point, Map.fetch!(depth_matrix, point)} end)
+end)
+|> Enum.map(&Map.new/1)
+|> Enum.map(&Enum.count/1)
+|> Enum.sort()
+|> Enum.reverse()
+|> Enum.take(3)
+|> Enum.product()
+```
