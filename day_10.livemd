@@ -1,0 +1,88 @@
+# Dia 10:
+
+## Lendo o arquivo de entrada
+
+O arquivo de entrada deve conter uma lista de caracteres existentes em cada linha.
+
+```elixir
+input =
+  "data/day_10_input.txt"
+  |> File.read!()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.codepoints/1)
+```
+
+## Estrela 19: Encontrando erros
+
+Para cada linha precisamos acumular os caracteres de abertura em uma lista para validar se os caracteres de fechamento estão
+
+```elixir
+defmodule SyntaxEvaluator do
+  @openers ["(", "[", "{", "<"]
+  @closers [")", "]", "}", ">"]
+  @score %{")" => 3, "]" => 57, "}" => 1197, ">" => 25137}
+
+  def eval_line(line) do
+    eval_line(:ok, [], line)
+  end
+
+  def calc_score(char) do
+    Map.fetch!(@score, char)
+  end
+
+  defp eval_line(:ok, openers, [current_char | rest_of_the_line])
+       when current_char in @openers,
+       do: eval_line(:ok, [current_char | openers], rest_of_the_line)
+
+  defp eval_line(:error, error_char, _), do: error_char
+  defp eval_line(:ok, remaining_openers, []), do: {:ok, remaining_openers}
+
+  defp eval_line(:ok, [last_opener | other_openers], [current_char | rest_of_the_line]) do
+    opener_index = Enum.find_index(@openers, fn char -> char == last_opener end)
+    closer_index = Enum.find_index(@closers, fn char -> char == current_char end)
+
+    cond do
+      opener_index == closer_index -> eval_line(:ok, other_openers, rest_of_the_line)
+      true -> {:error, current_char}
+    end
+  end
+end
+
+input
+|> Enum.map(&SyntaxEvaluator.eval_line/1)
+|> Enum.filter(fn {result, _} -> result != :ok end)
+|> Enum.map(fn {_, char} -> SyntaxEvaluator.calc_score(char) end)
+|> Enum.sum()
+```
+
+```elixir
+star_10_input =
+  input
+  |> Enum.map(&SyntaxEvaluator.eval_line/1)
+  |> Enum.filter(fn {result, _} -> result == :ok end)
+```
+
+```elixir
+char_scores = %{
+  "(" => 1,
+  "[" => 2,
+  "{" => 3,
+  "<" => 4
+}
+
+score_calculator = fn item, acc -> acc * 5 + Map.fetch!(char_scores, item) end
+
+star_10_result =
+  star_10_input
+  |> Enum.map(fn {_result, line} -> Enum.reduce(line, 0, score_calculator) end)
+  |> Enum.sort()
+
+answer_index =
+  star_10_result
+  |> length
+  |> div(2)
+
+{answer, _} = List.pop_at(star_10_result, answer_index)
+
+answer
+```
