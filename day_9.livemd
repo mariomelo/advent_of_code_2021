@@ -1,3 +1,6 @@
+<!-- vim: set syntax=markdown: -->
+<!-- livebook:{"persist_outputs":true} -->
+
 # Dia 9: O chão é lava
 
 ## Lendo o arquivo de entrada
