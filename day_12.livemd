@@ -1,0 +1,141 @@
+<!-- vim: set syntax=markdown: -->
+<!-- livebook:{"persist_outputs":true} -->
+
+# Dia 12: Caverninhas e cavernonas
+
+## Leitura do arquivo de entrada
+
+A primeira etapa consiste em mapear um grafo com os caminhos possíveis ao se partir de cada ponto.
+
+Como os caminhos são bilaterais, precisamos considerar que entradas como `A-B` e `C-A` me informam que ao partir de `A` posso ir tanto para `B` quanto para `C`.
+
+Por fim, para facilitar nosso algoritmo, removemos o ponto `start` da lista de destinos válidos à partir de qualquer ponto.
+
+```elixir
+input =
+  "data/day_12_input.txt"
+  |> File.read!()
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line -> String.split(line, "-", trim: true) end)
+  |> Enum.map(&List.to_tuple/1)
+  |> Enum.reduce(%{}, fn {origin, dest}, map ->
+    map
+    |> Map.update(origin, [dest], fn destinations -> [dest | destinations] end)
+    |> Map.update(dest, [origin], fn destinations -> [origin | destinations] end)
+  end)
+  |> Enum.map(fn {point, paths} -> {point, List.delete(paths, "start")} end)
+  |> Map.new()
+```
+
+```output
+%{
+  "EG" => ["ch", "end", "bn", "bj"],
+  "KW" => ["bj"],
+  "LN" => ["iw", "yv", "ch", "bj", "end"],
+  "OF" => ["ch", "end", "bj", "iw"],
+  "TQ" => ["yv", "bj", "ch", "iw"],
+  "bj" => ["ch", "KW", "TQ", "OF", "LN", "EG"],
+  "bn" => ["EG"],
+  "ch" => ["bj", "OF", "EG", "TQ", "LN", "iw"],
+  "end" => ["OF", "EG", "LN"],
+  "iw" => ["yv", "LN", "TQ", "OF", "ch"],
+  "start" => ["TQ", "iw", "yv"],
+  "yv" => ["TQ", "iw", "LN"]
+}
+```
+
+## Navegando pelos caminhos
+
+Novamente vamos percorrer um grafo.
+
+```elixir
+defmodule PathFinder do
+  def explore_paths(_graph, paths, _last_available_paths = 0), do: paths
+
+  def explore_paths(graph, paths, _last_available_paths) do
+    updated_paths =
+      paths
+      |> Enum.flat_map(fn
+        full_path = ["end" | _] -> [full_path]
+        full_path = [current_point | _] -> navigate(graph, full_path, current_point)
+      end)
+
+    available_paths =
+      updated_paths
+      |> Enum.count(fn [last_step | _] -> last_step != "end" end)
+
+    explore_paths(graph, updated_paths, available_paths)
+  end
+
+  def navigate(graph, path_followed, next_step) do
+    graph
+    |> Map.fetch!(next_step)
+    |> Enum.filter(fn options -> exclude_visited_small_caves(options, path_followed) end)
+    |> Enum.map(fn valid_path -> [valid_path | path_followed] end)
+  end
+
+  def exclude_visited_small_caves(path_option, visited_caves) do
+    path_option == String.upcase(path_option) or path_option not in visited_caves
+  end
+end
+
+input
+|> PathFinder.explore_paths([["start"]], -1)
+|> Enum.count()
+```
+
+```output
+4659
+```
+
+## Estrela 24: Reutilizando cavernas pequenas
+
+Aqui basta repetir o mesmo processo utilizado na estrela anterior com uma pequena alteração: a função `exclude_visited_small_caves` agora deverá permitir que alguma caverna pequena se repita ao longo do caminho.
+
+```elixir
+defmodule NewPathFinder do
+  def explore_paths(_graph, paths, _last_available_paths = 0), do: paths
+
+  def explore_paths(graph, paths, _last_available_paths) do
+    updated_paths =
+      paths
+      |> Enum.flat_map(fn
+        full_path = ["end" | _] -> [full_path]
+        full_path = [current_point | _] -> navigate(graph, full_path, current_point)
+      end)
+
+    available_paths =
+      updated_paths
+      |> Enum.count(fn [last_step | _] -> last_step != "end" end)
+
+    explore_paths(graph, updated_paths, available_paths)
+  end
+
+  def navigate(graph, path_followed, next_step) do
+    graph
+    |> Map.fetch!(next_step)
+    |> Enum.filter(fn options -> exclude_double_visited_small_caves(options, path_followed) end)
+    |> Enum.map(fn valid_path -> [valid_path | path_followed] end)
+  end
+
+  def exclude_double_visited_small_caves(path_option, visited_caves) do
+    double_visited_a_small_cave =
+      visited_caves
+      |> Enum.filter(fn path -> path == String.downcase(path) end)
+      |> Enum.frequencies()
+      |> Enum.any?(fn {_cave, visits} -> visits > 1 end)
+
+    path_option == String.upcase(path_option) or
+      path_option not in visited_caves or
+      !double_visited_a_small_cave
+  end
+end
+
+input
+|> NewPathFinder.explore_paths([["start"]], -1)
+|> Enum.count()
+```
+
+```output
+148962
+```
