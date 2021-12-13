@@ -1,0 +1,242 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Dia 11: O Polvo Dumbo
+
+## Leitura do arquivo de entrada
+
+De maneira semelhante ao exercício do dia 9, vamos precisar percorrer um **grafo**. Assim, faz sentido que tenhamos uma estrutura de dados razoavelmente parecida: um mapa onde a linha e a coluna de um polvo nos leva ao seu nível de energia.
+
+```elixir
+input_matrix =
+  "data/day_11_input.txt"
+  |> File.read!()
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line -> String.split(line, "", trim: true) end)
+  |> List.flatten()
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Enum.map(fn {octopus, index} -> {{div(index, 10), rem(index, 10)}, octopus} end)
+  |> Map.new()
+```
+
+```output
+%{
+  {4, 5} => 2,
+  {5, 9} => 7,
+  {1, 2} => 2,
+  {8, 5} => 2,
+  {0, 9} => 4,
+  {8, 6} => 4,
+  {5, 2} => 4,
+  {3, 6} => 6,
+  {2, 4} => 3,
+  {4, 8} => 4,
+  {6, 5} => 8,
+  {0, 3} => 4,
+  {1, 1} => 7,
+  {9, 6} => 5,
+  {4, 3} => 7,
+  {3, 7} => 6,
+  {5, 0} => 6,
+  {0, 5} => 1,
+  {0, 1} => 6,
+  {8, 9} => 7,
+  {4, 0} => 8,
+  {3, 2} => 7,
+  {9, 8} => 8,
+  {8, 1} => 1,
+  {7, 3} => 8,
+  {7, 9} => 7,
+  {0, 8} => 8,
+  {3, 1} => 5,
+  {6, 1} => 2,
+  {2, 0} => 6,
+  {8, 3} => 1,
+  {8, 4} => 1,
+  {2, 7} => 8,
+  {4, 6} => 2,
+  {9, 4} => 4,
+  {6, 2} => 8,
+  {0, 7} => 3,
+  {9, 0} => 3,
+  {7, 2} => 3,
+  {0, 0} => 8,
+  {8, 7} => 2,
+  {5, 8} => 1,
+  {7, 6} => 5,
+  {2, 8} => 2,
+  {1, 4} => 4,
+  {5, 6} => 8,
+  {9, 5} => 1,
+  {6, 6} => 6,
+  {9, ...} => 8,
+  {...} => 8,
+  ...
+}
+```
+
+## Propagando energia
+
+Cada vez que um polvo atinge o nível `10` de energia, essa energia se propaga para os vizinhos. Mas é importante notar que essa propagação deve ser feita por ondas, e ao final do ciclo, todos os polvos que tiverem energia igual ou superior a `10` devem ser zerados.
+
+A parte mais relevante do algoritmo é a decisão sobre **quais polvos devem ter seu nível de energia incrementado**. Esta decisão é tomada na função `light_neighbors` da seguinte forma:
+
+* Um polvo que acende não deve se auto-energizar
+* Polvos devem energizar apenas vizinhos válidos (polvos nas extremidades têm menos vizinhos)
+* Polvos que já piscaram neste ciclo não devem ser energizados
+
+```elixir
+defmodule OctoDumbo do
+  def tick({accumulated_flashes, octo_map}) do
+    ticked_map =
+      octo_map
+      |> Enum.map(fn {key, value} -> {key, value + 1} end)
+      |> Map.new()
+
+    flashing_octopuses = Enum.count(ticked_map, fn {_octopus, energy} -> energy >= 10 end)
+
+    {new_flashes, propagated_map} =
+      ticked_map
+      |> propagate_light(flashing_octopuses, 0)
+
+    {new_flashes + accumulated_flashes, propagated_map}
+  end
+
+  defp propagate_light(octo_map, _octopuses_to_flash = 0, total_octopuses),
+    do: {total_octopuses, octo_map}
+
+  defp propagate_light(octo_map, octopuses_to_flash, total_octopuses) do
+    flashing_octopuses =
+      octo_map
+      |> Enum.filter(fn {_octopus, energy} -> energy >= 10 end)
+      |> Map.new()
+      |> Map.keys()
+
+    reseted_map =
+      octo_map
+      |> Enum.map(fn
+        {key, value} when value >= 10 -> {key, 0}
+        {key, value} -> {key, value}
+      end)
+      |> Map.new()
+
+    updated_map =
+      flashing_octopuses
+      |> Enum.reduce(reseted_map, fn energyzed_octopus, new_map ->
+        Map.merge(new_map, light_neighbors(new_map, energyzed_octopus))
+      end)
+
+    activated_octopuses =
+      updated_map
+      |> Enum.count(fn {_octopus, energy} -> energy >= 10 end)
+
+    propagate_light(updated_map, activated_octopuses, octopuses_to_flash + total_octopuses)
+  end
+
+  defp light_neighbors(octo_map, {octo_x, octo_y}) do
+    neighbors =
+      for x <- -1..1,
+          y <- -1..1,
+          do: {{x + octo_x, y + octo_y}, Map.fetch(octo_map, {x + octo_x, y + octo_y})}
+
+    neighbors
+    |> Enum.filter(fn {{x, y}, _} -> {x, y} != {octo_x, octo_y} end)
+    |> Enum.filter(fn {_, result} -> result != :error end)
+    |> Enum.filter(fn {_position, {_, value}} -> value != 0 end)
+    |> Enum.map(fn {key, {_, value}} -> {key, value + 1} end)
+    |> Map.new()
+  end
+end
+
+1..100
+|> Enum.reduce({0, input_matrix}, fn _, updated_octopuses ->
+  OctoDumbo.tick(updated_octopuses)
+end)
+```
+
+```output
+{1667,
+ %{
+   {4, 5} => 2,
+   {5, 9} => 4,
+   {1, 2} => 1,
+   {8, 5} => 0,
+   {0, 9} => 9,
+   {8, 6} => 0,
+   {5, 2} => 2,
+   {3, 6} => 1,
+   {2, 4} => 1,
+   {4, 8} => 4,
+   {6, 5} => 6,
+   {0, 3} => 1,
+   {1, 1} => 4,
+   {9, 6} => 9,
+   {4, 3} => 3,
+   {3, 7} => 1,
+   {5, 0} => 2,
+   {0, 5} => 1,
+   {0, 1} => 4,
+   {8, 9} => 6,
+   {4, 0} => 2,
+   {3, 2} => 3,
+   {9, 8} => 6,
+   {8, 1} => 5,
+   {7, 3} => 3,
+   {7, 9} => 7,
+   {0, 8} => 4,
+   {3, 1} => 2,
+   {6, 1} => 2,
+   {2, 0} => 2,
+   {8, 3} => 9,
+   {8, 4} => 0,
+   {2, 7} => 1,
+   {4, 6} => 3,
+   {9, 4} => 0,
+   {6, 2} => 2,
+   {0, 7} => 5,
+   {9, 0} => 8,
+   {7, 2} => 2,
+   {0, 0} => 2,
+   {8, 7} => 9,
+   {5, 8} => 0,
+   {7, 6} => 0,
+   {2, 8} => 7,
+   {1, 4} => 1,
+   {5, 6} => 0,
+   {9, ...} => 0,
+   {...} => 0,
+   ...
+ }}
+```
+
+## Estrela 22: Flash Simultâneo
+
+Esta estrela fica bastante simples de se obter em função da estrutura criada para a estrela anterior. Basta continuar utilizando a função `OctoDumbo.tick` até encontrarmos um ciclo onde todos os polvos terminam com `energia = 0`.
+
+```elixir
+defmodule SyncOctopus do
+  def start(octo_map) do
+    tick(octo_map, 0, is_sync?(octo_map))
+  end
+
+  defp tick(_, cycle, true), do: cycle
+
+  defp tick(octo_map, cycle, _is_sync?) do
+    {_, updated_map} = OctoDumbo.tick({0, octo_map})
+    tick(updated_map, cycle + 1, is_sync?(updated_map))
+  end
+
+  defp is_sync?(octo_map) do
+    octo_map
+    |> Map.values()
+    |> Enum.all?(fn energy -> energy == 0 end)
+  end
+end
+
+input_matrix
+|> SyncOctopus.start()
+```
+
+```output
+488
+```
