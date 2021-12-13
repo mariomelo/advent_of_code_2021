@@ -1,0 +1,160 @@
+<!-- vim: set syntax=markdown: -->
+<!-- livebook:{"persist_outputs":true} -->
+
+# Dia 13: Origami
+
+## Lendo o arquivo de entrada
+
+Para otimizar o cálculo, vamos usar uma estrutura onde armazenamos apenas as coordenadas dos pontos existentes no formato: `{x, y}`.
+
+Esse formato tem um pequeno problema: para utilizá-lo precisaremos sempre armazenar o tamanho atual da folha de papel. Isso porque não temos como saber se existem linhas/colunas totalmente em branco nas extremidades da folha.
+
+```elixir
+{dots, instructions} =
+  "data/day_13_input.txt"
+  |> File.read!()
+  |> String.split("\n\n", trim: true)
+  |> Enum.map(fn line -> String.split(line, "\n", trim: true) end)
+  |> List.to_tuple()
+
+dot_coords =
+  dots
+  |> Enum.flat_map(fn line -> String.split(line, ",", trim: true) end)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.chunk_every(2)
+  |> Enum.map(&List.to_tuple/1)
+  |> Enum.sort()
+
+max_x =
+  dot_coords
+  |> Enum.map(fn item -> elem(item, 0) end)
+  |> Enum.max()
+
+max_y =
+  dot_coords
+  |> Enum.map(fn item -> elem(item, 1) end)
+  |> Enum.max()
+
+instruction_list =
+  instructions
+  |> Enum.map(fn line -> String.split(line, "=", trim: true) end)
+  |> Enum.map(&List.to_tuple/1)
+  |> Enum.map(fn {axis, value} -> {String.at(axis, -1), String.to_integer(value)} end)
+```
+
+```output
+[
+  {"x", 655},
+  {"y", 447},
+  {"x", 327},
+  {"y", 223},
+  {"x", 163},
+  {"y", 111},
+  {"x", 81},
+  {"y", 55},
+  {"x", 40},
+  {"y", 27},
+  {"y", 13},
+  {"y", 6}
+]
+```
+
+## Dobrando o papel uma vez
+
+Aqui há bastante repetição de código, mas vamos lá:
+
+Podemos dobrar o papel em duas direções diferentes. Quando dobramos no eixo `x`, dividimos o papel em 2 partes: as que possuem o valor de `x` maior do que o ponto de dobradura e as que possuem o ponto `x` menor do que o ponto de dobradura.
+
+Para calcular onde cada ponto vai parar, fazemos o seguinte cálculo:
+
+* `abs(tamanho da folha - valor de x)`
+
+Desta forma, se temos uma folha de tamanho `14` com um ponto onde `x=14`, este ponto sairá da última coluna e irá para a primeira, pois `14-14=0`.
+
+```elixir
+defmodule PaperFolder do
+  def fold({max_x, max_y, sheet}, _instructions = {"x", line}) do
+    folded_part =
+      sheet
+      |> Enum.filter(fn {x, _y} -> x > line end)
+      |> Enum.map(fn {x, y} -> {abs(max_x - x), y} end)
+
+    updated_sheet =
+      sheet
+      |> Enum.filter(fn {x, _y} -> x < line end)
+      |> Enum.concat(folded_part)
+      |> Enum.uniq()
+
+    {div(max_x - 1, 2), max_y, updated_sheet}
+  end
+
+  def fold({size_x, size_y, sheet}, _instructions = {"y", line}) do
+    folded_part =
+      sheet
+      |> Enum.filter(fn {_x, y} -> y > line end)
+      |> Enum.map(fn {x, y} -> {x, abs(size_y - y)} end)
+
+    updated_sheet =
+      sheet
+      |> Enum.filter(fn {_x, y} -> y < line end)
+      |> Enum.concat(folded_part)
+      |> Enum.uniq()
+
+    {size_x, div(size_y - 1, 2), updated_sheet}
+  end
+end
+
+{_, _, sheet} = PaperFolder.fold({max_x, max_y, dot_coords}, Enum.at(instruction_list, 0))
+
+sheet
+|> Enum.count()
+```
+
+```output
+720
+```
+
+## Estrela 24: Seguindo as instruções
+
+Agora basta seguir as instruções repetidamente até atingir o resultado final, e para isso utilizamos um reducer simples.
+
+Para imprimir, foi necessário rotacionar a nossa matrix com o uso da função `zip` para só então imprimí-la.
+
+```elixir
+{size_x, size_y, result} =
+  instruction_list
+  |> Enum.reduce({max_x, max_y, dot_coords}, fn instruction, sheet ->
+    PaperFolder.fold(sheet, instruction)
+  end)
+
+printable_result = for x <- 0..size_x, y <- 0..size_y, do: Enum.any?(result, &(&1 == {x, y}))
+
+printable_result
+|> Enum.map(fn
+  true -> "#"
+  false -> " "
+end)
+|> Enum.chunk_every(size_y + 1)
+|> Enum.zip()
+|> Enum.map(&Tuple.to_list/1)
+|> Enum.map(&Enum.join/1)
+|> Enum.each(&IO.puts/1)
+
+# |> Enum.chunk_every(size_x + 1)
+# |> Enum.map(fn letter -> Enum.map(letter, &Enum.join/1) end)
+# |> Enum.map(fn letter_line -> Enum.join(letter_line, "\n") end)
+# |> Enum.each(&IO.puts/1)
+```
+
+```output
+ ##  #  # ###  ###  ###   ##  #  # #### 
+#  # #  # #  # #  # #  # #  # #  #    # 
+#  # #### #  # #  # #  # #  # #  #   #  
+#### #  # ###  ###  ###  #### #  #  #   
+#  # #  # #    # #  #    #  # #  # #    
+#  # #  # #    #  # #    #  #  ##  #### 
+```
+
+```output
+:ok
+```
