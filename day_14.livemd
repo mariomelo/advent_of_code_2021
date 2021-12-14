@@ -1,0 +1,264 @@
+<!-- vim: set syntax=markdown: -->
+<!-- livebook:{"persist_outputs":true} -->
+
+# Dia 14: Polímeros!
+
+## Leitura do arquivo de entrada
+
+O arquivo de entrada é composto de duas partes: o polímero inicial e um mapa com as possíveis transformações.
+
+Para facilitar nosso trabalho, vamos alterar o conjunto de regras para que ela já nos retorne o resultado esperado. Ou seja, ao invés de criar um dicionário onde `CH -> B` vamos criar um onde `CH -> CB`.
+
+Como vamos analisar todos os pares contidos na string, a letra `H` não precisa ser incluída no resultado pois será a primeira letra do próximo par.
+
+```elixir
+[polymer_string, rules_string] =
+  "data/day_14_input.txt"
+  |> File.read!()
+  |> String.split("\n\n", trim: true)
+
+initial_polymer =
+  polymer_string
+  |> String.codepoints()
+
+base_rules =
+  rules_string
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn rule -> String.split(rule, " -> ", trim: true) end)
+  |> Enum.map(&List.to_tuple/1)
+  |> Enum.map(fn {key = <<letter1, _>>, value} -> {key, <<letter1>> <> value} end)
+  |> Map.new()
+
+rule_keys = Map.keys(base_rules)
+rule_values = Map.values(base_rules)
+```
+
+```output
+["HN", "CO", "PC", "PO", "HN", "KF", "HF", "OF", "VK", "CS", "OB", "VH", "FV", "NS", "KB", "CB",
+ "SC", "BN", "HN", "KO", "CV", "FV", "CH", "NN", "SK", "FV", "PF", "KH", "SH", "OS", "FS", "BV",
+ "OC", "VO", "KS", "FF", "OH", "OC", "CC", "FV", "SN", "FP", "NN", "HK", "CK", "FF", "HB", "NH",
+ "VF", "NB", ...]
+```
+
+## Iniciando a transformação
+
+Agora basta separar a String em todos os pares possíveis e traduzir cada par utilizando nosso mapa de regras.
+
+Ah! No final, precisamos adicionar a última letra do polímero, pois nosso mapa de regras não a incluirá.
+
+```elixir
+defmodule Polymer do
+  def process(polymer, rules) do
+    polymer
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.map(fn pair -> Map.fetch!(rules, pair) end)
+    |> Enum.concat([Enum.at(polymer, -1)])
+    |> Enum.join()
+    |> String.split("", trim: true)
+  end
+end
+
+frequencies =
+  1..10
+  |> Enum.reduce(initial_polymer, fn iteration, polymer ->
+    new_polymer = Polymer.process(polymer, base_rules)
+    IO.puts("Step #{iteration}: #{Enum.count(new_polymer)}")
+    new_polymer
+  end)
+  |> Enum.frequencies()
+  |> Map.values()
+
+Enum.max(frequencies) - Enum.min(frequencies)
+```
+
+```output
+Step 1: 39
+Step 2: 77
+Step 3: 153
+Step 4: 305
+Step 5: 609
+Step 6: 1217
+Step 7: 2433
+Step 8: 4865
+Step 9: 9729
+Step 10: 19457
+```
+
+```output
+2068
+```
+
+## Estrela 28: 40 passos!
+
+O exemplo que começa com apenas 4 letras (3 pares) é capaz de gerar uma sequencia onde a letra `B` aparece `2192039569602` vezes.
+
+Essa informação já deixa bastante óbvio que nossa solução anterior não será capaz de solucionar o novo problema.
+
+Podemos então contar a frequencia com que cada par de letras aparece a cada ciclo. Por exemplo:
+
+Se temos uma regra que diz que `BH -> C`, podemos inferir que `BH` gera dois novos pares de letras: `[BC, BH]`.
+
+Com isso, podemos armazenar a quantidade de pares que temos em uma estrutura como:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+%{
+  BC -> 1, 
+  CH -> 1
+}
+
+```
+
+Para isso, precisamos ajustar nosso dicionário de regras:
+
+```elixir
+optimized_base_rules =
+  rules_string
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn rule -> String.split(rule, " -> ", trim: true) end)
+  |> Enum.map(&List.to_tuple/1)
+  |> Enum.map(fn {key = <<letter1, letter2>>, value} ->
+    {key, [<<letter1>> <> value, value <> <<letter2>>]}
+  end)
+  |> Map.new()
+```
+
+```output
+%{
+  "HV" => ["HN", "NV"],
+  "CB" => ["CO", "OB"],
+  "PO" => ["PC", "CO"],
+  "PV" => ["PO", "OV"],
+  "HP" => ["HN", "NP"],
+  "KC" => ["KF", "FC"],
+  "HK" => ["HF", "FK"],
+  "ON" => ["OF", "FN"],
+  "VF" => ["VK", "KF"],
+  "CP" => ["CS", "SP"],
+  "OO" => ["OB", "BO"],
+  "VV" => ["VH", "HV"],
+  "FO" => ["FV", "VO"],
+  "NB" => ["NS", "SB"],
+  "KH" => ["KB", "BH"],
+  "CN" => ["CB", "BN"],
+  "SO" => ["SC", "CO"],
+  "BS" => ["BN", "NS"],
+  "HN" => ["HN", "NN"],
+  "KB" => ["KO", "OB"],
+  "CC" => ["CV", "VC"],
+  "FF" => ["FV", "VF"],
+  "CH" => ["CH", "HH"],
+  "NF" => ["NN", "NF"],
+  "SS" => ["SK", "KS"],
+  "FP" => ["FV", "VP"],
+  "PB" => ["PF", "FB"],
+  "KN" => ["KH", "HN"],
+  "SF" => ["SH", "HF"],
+  "OK" => ["OS", "SK"],
+  "FB" => ["FS", "SB"],
+  "BO" => ["BV", "VO"],
+  "OF" => ["OC", "CF"],
+  "VO" => ["VO", "OO"],
+  "KP" => ["KS", "SP"],
+  "FC" => ["FF", "FC"],
+  "OB" => ["OH", "HB"],
+  "OC" => ["OC", "CC"],
+  "CS" => ["CC", "CS"],
+  "FN" => ["FV", "VN"],
+  "SH" => ["SN", "NH"],
+  "FK" => ["FP", "PK"],
+  "NO" => ["NN", "NO"],
+  "HF" => ["HK", "KF"],
+  "CK" => ["CK", "KK"],
+  "FH" => ["FF", "FH"],
+  "HC" => ["HB", "BC"],
+  "NC" => ["NH", "HC"],
+  "VS" => ["VF", ...],
+  "NS" => [...],
+  ...
+}
+```
+
+Com essa estrutura só precisamos pensar que a cada `tick` um par de letras gera dois novos pares de letras. Como podemos ter pares repetidos, precisamos utilizar o `reduce` na função `tick` para obter novamente um mapa com o total de ocorrências de cada par.
+
+Aqui também vale a regra de que a última letra precisa ser considerada no final, e isto acontece na função `get_individual_frequencies`.
+
+```elixir
+defmodule OptimizedPolymer do
+  def get_initial_map(polymer) do
+    polymer
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.map(&Enum.join/1)
+    |> Enum.map(&{&1, 1})
+    |> Enum.reduce(%{}, fn {pair, occurrences}, map ->
+      Map.update(map, pair, occurrences, &(&1 + occurrences))
+    end)
+  end
+
+  def tick_loop(polymer, rules, number_of_loops) do
+    1..number_of_loops
+    |> Enum.reduce(polymer, fn _iteration, new_polymer ->
+      tick(new_polymer, rules)
+    end)
+  end
+
+  def tick(polymer, rules) do
+    polymer
+    |> Enum.flat_map(fn pair_occurrences -> break_pair(pair_occurrences, rules) end)
+    |> Enum.reduce(%{}, fn {pair, occurrences}, map ->
+      Map.update(map, pair, occurrences, &(&1 + occurrences))
+    end)
+  end
+
+  def get_individual_frequencies(polymer, initial_polymer) do
+    polymer
+    |> Enum.map(fn {<<letter1, _>>, occurrences} ->
+      {<<letter1>>, occurrences}
+    end)
+    |> Enum.reduce(%{}, fn {pair, occurrences}, map ->
+      Map.update(map, pair, occurrences, &(&1 + occurrences))
+    end)
+    |> Map.update!(Enum.at(initial_polymer, -1), &(&1 + 1))
+  end
+
+  defp break_pair({pair, occurrences}, rules) do
+    rules
+    |> Map.fetch!(pair)
+    |> Enum.map(fn new_pair -> {new_pair, occurrences} end)
+  end
+end
+
+frequencies =
+  initial_polymer
+  |> OptimizedPolymer.get_initial_map()
+  |> OptimizedPolymer.tick_loop(optimized_base_rules, 40)
+  |> OptimizedPolymer.get_individual_frequencies(initial_polymer)
+  |> IO.inspect()
+
+result_values =
+  frequencies
+  |> Map.values()
+
+Enum.max(result_values) - Enum.min(result_values)
+```
+
+```output
+%{
+  "B" => 2154067383378,
+  "C" => 1683683861198,
+  "F" => 2272248014765,
+  "H" => 2051724991077,
+  "K" => 1687594000835,
+  "N" => 2594993191556,
+  "O" => 3045701690449,
+  "P" => 886806912635,
+  "S" => 2267007070230,
+  "V" => 2246893811622
+}
+```
+
+```output
+2158894777814
+```
