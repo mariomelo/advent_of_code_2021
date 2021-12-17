@@ -81,127 +81,107 @@ weight_map =
 
 ## Identificando o  menor caminho
 
-Para identificar o menor caminho de maneira eficiente, podemos utilizar um algoritmo guloso.
-
-Imagine a entrada:
-
-```
-1 2 3
-3 4 1
-1 1 5
-```
-
-Começamos identificando os vizinhos do ponto inicial e consideramos que os mesmos foram visitados. Mapeamos estes pontos como **pontos da margem**:
-
-```
-1   2 | 3
-    -
-3 | 4   1
--
-1   1   5
-```
-
-Os pontos do lado esquerdo da margem já tiveram seus pesos calculados. Na próxima etapa, consideramos os vizinhos da borda e somamos seus pesos ao peso do último nó:
-
-```
-1   2   5 |
-        -   
-3   6 | 1
-    -
-4 | 1   5
-```
-
-Ah! Caso haja dois caminhos até o destino final, selecionamos o de menor peso.
+Para encontrar o menor caminho, vamos utilizar o algoritmo de Djikstra:
 
 ```elixir
-defmodule GraphNavigator do
-  def start(weight_map, start_node \\ {0, 0}) do
-    nodes_to_check = get_unvisited_neighbors(weight_map, %{}, start_node)
+defmodule Dijkstra do
+  def run(weight_map) do
+    min_distances = %{{0, 0} => 0}
+    queue = Enum.sort(min_distances)
+    path = Map.new(Enum.map(weight_map, fn {node, _distance} -> {node, nil} end))
 
-    visited_nodes =
-      nodes_to_check
-      |> Map.new()
-      |> Map.put(start_node, 0)
-
-    explore_graph(weight_map, visited_nodes, nodes_to_check)
+    take_a_step(weight_map, min_distances, path, queue)
   end
 
-  defp explore_graph(_weight_map, visited_nodes, _nodes_to_check = []), do: visited_nodes
+  def take_a_step(_weight_map, min_distances, path, _queue = []), do: {min_distances, path}
 
-  defp explore_graph(weight_map, visited_nodes, border_nodes) do
-    node_to_visit =
-      border_nodes
-      |> Enum.flat_map(fn {coords, _value} ->
-        get_unvisited_neighbors(weight_map, visited_nodes, coords)
-      end)
-      |> Enum.sort()
-      |> Enum.dedup_by(fn {coord, _weight} -> coord end)
-      |> Enum.min_by(fn {_coord, weight} -> weight end)
+  def take_a_step(weight_map, min_distances, path, [current_node | queue]) do
+    {_current_coords, current_distance} = current_node
 
-    new_visited_nodes =
-      visited_nodes
-      |> Map.put(elem(node_to_visit, 0), elem(node_to_visit, 1))
+    {updated_path, updated_distances, updated_queue} =
+      current_node
+      |> get_neighbors
+      |> Enum.reduce(
+        {path, min_distances, queue},
+        fn neighbor, {reduced_path, reduced_distances, reduced_queue} ->
+          distance =
+            if weight_map[neighbor],
+              do: current_distance + weight_map[neighbor],
+              else: nil
 
-    updater = Enum.count(new_visited_nodes)
+          if distance < min_distances[neighbor] do
+            updated_distances = Map.put(reduced_distances, neighbor, distance)
+            updated_path = Map.replace!(reduced_path, neighbor, current_node)
+            updated_queue = add_to_queue(reduced_queue, neighbor, distance)
+            {updated_path, updated_distances, updated_queue}
+          else
+            {reduced_path, reduced_distances, reduced_queue}
+          end
+        end
+      )
 
-    if rem(updater, 1000) == 0 do
-      IO.puts()
-    end
-
-    new_border_nodes =
-      [node_to_visit | border_nodes]
-      |> Enum.filter(fn {coords, _} ->
-        get_unvisited_neighbors(weight_map, new_visited_nodes, coords) != []
-      end)
-
-    explore_graph(weight_map, new_visited_nodes, new_border_nodes)
+    take_a_step(weight_map, updated_distances, updated_path, updated_queue)
   end
 
-  defp get_unvisited_neighbors(weight_map, visited_nodes, node) do
-    current_weight = Map.get(visited_nodes, node, 0)
+  def add_to_queue([], node, distance), do: [{node, distance}]
 
-    get_neighbors(weight_map, node)
-    |> Enum.filter(fn {_coord, result} -> result != nil end)
-    |> Enum.filter(fn {coord, _result} -> not Map.has_key?(visited_nodes, coord) end)
-    |> Enum.map(fn {coords, weight} -> {coords, weight + current_weight} end)
-  end
+  def add_to_queue(queue = [{_coords, min_distance} | _tail], node, distance)
+      when distance < min_distance,
+      do: [{node, distance} | queue]
 
-  defp get_neighbors(weight_map, _node = {node_x, node_y}) do
+  def add_to_queue([head = {_coords, _min_distance} | tail], node, distance),
+    do: [head | add_to_queue(tail, node, distance)]
+
+  def get_neighbors(_node = {{x, y}, _distance}) do
     [
-      {{node_x, node_y + 1}, Map.get(weight_map, {node_x, node_y + 1})},
-      {{node_x + 1, node_y}, Map.get(weight_map, {node_x + 1, node_y})}
+      {x + 1, y},
+      {x - 1, y},
+      {x, y + 1},
+      {x, y - 1}
     ]
   end
 end
 
-GraphNavigator.start(weight_map)
-|> Enum.sort()
-|> Enum.at(-1)
-```
+{distances, paths} = Dijkstra.run(weight_map)
 
-```output
-1000
-2000
-3000
-4000
-5000
-6000
-7000
-8000
-9000
-10000
+distances
+|> Enum.sort()
+|> Enum.max()
 ```
 
 ```output
 {{99, 99}, 363}
 ```
 
+<!-- livebook:{"branch_parent_index":0} -->
+
 ## Estrela 30: A caverna gigante
 
+Se o algoritmo estiver certo, basta criar a nova entrada e fornecê-la à função `Djikstra.run`:
+
+_(esta parte não ficou nada eficiente e pode ser melhorada)_
+
 ```elixir
-defmodule BigCaveExplorer do
-  def find_shortest
-end
+map_side = floor(:math.sqrt(Enum.count(weight_map)))
+
+raw_big_map =
+  for x <- 0..4,
+      y <- 0..4,
+      into: [],
+      do:
+        Enum.map(weight_map, fn
+          {{orig_x, orig_y}, weight} ->
+            {{orig_x + x * map_side, orig_y + y * map_side}, weight + x + y}
+        end)
+
+big_map =
+  raw_big_map
+  |> List.flatten()
+  |> Enum.map(fn
+    {coords, weight} when weight > 9 -> {coords, weight - 9}
+    result -> result
+  end)
+  |> Map.new()
 ```
 
 ```output
@@ -258,4 +238,20 @@ end
   {...} => 3,
   ...
 }
+```
+
+Por fim, testamos a nova entrada para obter a estrela 30:
+
+```elixir
+big_map_side = floor(:math.sqrt(Enum.count(big_map)))
+
+{big_distances, big_path} = Dijkstra.run(big_map)
+
+big_distances
+|> Enum.sort()
+|> Enum.max()
+```
+
+```output
+{{499, 499}, 2835}
 ```
